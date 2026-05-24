@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo Slider</title>
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: auto;
+    min-height: 100%;
+  }
+
+.slider-container {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 10px;
+  background: #000;
+  box-sizing: border-box;
+}
+
+  .slider a {
+    display: inline-block;
+  }
+
+.slider-container .slider a img {
+  height: 150px !important;
+  width: auto !important;
+  object-fit: cover !important;
+  object-position: bottom center !important;
+  border-radius: 4px !important;
+  margin-right: 10px !important;
+  cursor: pointer !important;
+  transition: transform 0.2s !important;
+  display: inline-block !important;
+}
+
+  .slider img:hover {
+    transform: scale(1.05);
+  }
+
+  .slider-note {
+    text-align: center;
+    color: orange;
+    margin-top: 10px;
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="slider-container">
+  <div class="slider" id="slider"></div>
+</div>
+
+<p class="slider-note">Click on an image to open it in a new tab.</p>
+
+<script>
+/* -----------------------------------------
+   Versioning for cache-busting
+   Bump this number to force reloading
+   of the JSON data.
+----------------------------------------- */
+const VERSION = "20260514";
+
+/* -----------------------------------------
+   Load external JSON list of images
+----------------------------------------- */
+fetch(`photos.json?v=${VERSION}`)
+  .then(response => response.json())
+  .then(photoList => {
+    buildSlider(photoList);
+    startAutoSlide();
+  })
+  .catch(err => console.error("Error loading photos.json:", err));
+
+/* -----------------------------------------
+   Build slider dynamically
+----------------------------------------- */
+function buildSlider(photoList) {
+  const slider = document.getElementById("slider");
+
+  photoList.forEach(file => {
+    const src = "http://intermountainhog.craggymtn.com/HOGScan/Home_Page/PhotoSlider/gallery/" + file;
+
+    // Wrap image in a real link so HOGScan allows click-through
+    const link = document.createElement("a");
+    link.href = src;
+    link.target = "_blank";
+
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = file;
+
+    img.onerror = () => console.warn("Missing image:", img.src);
+
+    link.appendChild(img);
+    slider.appendChild(link);
+  });
+
+  sendHeight();
+}
+
+/* -----------------------------------------
+   Auto-slide with pause on hover/touch
+----------------------------------------- */
+let currentIndex = 0;
+let slideInterval = null;
+let isPaused = false;
+
+function startAutoSlide() {
+  const container = document.querySelector(".slider-container");
+  const slider = document.getElementById("slider");
+  const images = slider.querySelectorAll("img");
+
+  if (images.length === 0) return;
+
+  // Duplicate images for seamless loop
+  slider.innerHTML += slider.innerHTML;
+  const allImages = slider.querySelectorAll("img");
+
+  container.style.overflow = "hidden";
+
+  let offset = 0;
+
+  slideInterval = setInterval(() => {
+    if (isPaused) return;
+
+    const nextImg = allImages[currentIndex];
+    const nextWidth = nextImg.offsetWidth + 10;
+
+    offset += nextWidth;
+
+    slider.style.transition = "transform 0.6s ease-in-out";
+    slider.style.transform = `translateX(${-offset}px)`;
+
+    currentIndex++;
+
+    if (currentIndex >= images.length) {
+      setTimeout(() => {
+        slider.style.transition = "none";
+        offset = 0;
+        currentIndex = 0;
+        slider.style.transform = "translateX(0)";
+      }, 650);
+    }
+
+  }, 3000);
+
+  // Pause on hover (desktop)
+  container.addEventListener("mouseenter", () => isPaused = true);
+  container.addEventListener("mouseleave", () => isPaused = false);
+
+  // Pause on touch (mobile)
+  container.addEventListener("touchstart", () => isPaused = true);
+  container.addEventListener("touchend", () => isPaused = false);
+}
+
+/* -----------------------------------------
+   Auto-resize iframe height
+----------------------------------------- */
+function sendHeight() {
+  const height = document.body.scrollHeight;
+  try {
+    window.parent.postMessage({ sliderHeight: height }, "*");
+  } catch (e) {
+    console.warn("postMessage failed:", e);
+  }
+}
+
+window.onload = sendHeight;
+window.onresize = sendHeight;
+</script>
+
+</body>
+</html>
